@@ -20,7 +20,7 @@ typedef struct dnsHeader
     unsigned short AnswerRRs;   //Number of answer resouces
     unsigned short AuthorityRRs;//Number of authority resources
     unsigned short AddtionalRRs;//Number of addtional resources
-} *pDNSHeader;
+} DNSHeader;
 
 
 #pragma pack(pop)
