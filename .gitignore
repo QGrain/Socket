@@ -1,3 +1,5 @@
 .vscode/
 *.exe
 .gitignore
+
+updateFiles.py
