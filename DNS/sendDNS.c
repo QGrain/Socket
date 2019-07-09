@@ -5,7 +5,7 @@
 
 #pragma comment(lib, "ws2_32.lib")
 
-BOOLEAN sendDNS(SOCKET sendSocket, const char *DomainName, const char *dnsServer);
+BOOLEAN sendDNS(const char *DomainName, const char *dnsServer);
 BOOLEAN verifyDomainName(const char *DomainName);
 int lastIsDot(const char *DomainName);
 void Domain2QueryName(const char *DomainName, char *QueryName);
@@ -16,12 +16,34 @@ int main()
 {   
     BOOLEAN status = FALSE;
     char *DomainName = "baidu.com";
-    char *dnsServer = "192.168.11.101";
+    char *dnsServer = "202.114.0.131";
 
+
+    fprintf(stderr, "-------\t-------\t-------\t-------\ntrying to query %s from %s\n", DomainName, dnsServer);
+    status = sendDNS(DomainName, dnsServer);
+    fprintf(stderr, "sendDNS() finished!\n");
+    if(status == FALSE) {
+        fprintf(stderr, "sendDNS() returned, send failed!\n");
+        goto Exit;
+    }
+    else {
+        fprintf(stderr, "send Success!\n");
+    }
+
+
+Exit:
+
+    return 0;
+}
+
+BOOLEAN sendDNS(const char *DomainName, const char *dnsServer)	//DNS server is 202.114.0.131 for default
+{
+    BOOLEAN sendStatus = FALSE;
+    BOOLEAN dnIsValid = verifyDomainName(DomainName);
     WSADATA wsaData;
-    SOCKET sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    SOCKET sendSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if(sendSocket < 0) {
-        fprintf(stderr, "Create Socket failed, pSocket is %d\n", sendSocket);
+        fprintf(stderr, "Create Socket failed, sendSocket is %d\n", sendSocket);
         goto Exit;
     }
 
@@ -29,24 +51,6 @@ int main()
         fprintf(stderr, "WSAStartup failed\n");
         goto Exit;
     }
-
-    status = sendDNS(sendSocket, DomainName, dnsServer);
-    if(status == FALSE) {
-        fprintf(stderr, "main() return, send failed!\n");
-        goto Exit;
-    }
-
-
-Exit:
-    closesocket(sendSocket);
-    WSACleanup();
-    return 0;
-}
-
-BOOLEAN sendDNS(SOCKET sendSocket, const char *DomainName, const char *dnsServer)	//DNS server is 202.114.0.131 for default
-{
-    BOOLEAN sendStatus = FALSE;
-    BOOLEAN dnIsValid = verifyDomainName(DomainName);
 
     if(dnsServer == NULL || dnIsValid == FALSE) {
         fprintf(stderr, "dnsServer or dnsName not valid\n");
@@ -60,29 +64,32 @@ BOOLEAN sendDNS(SOCKET sendSocket, const char *DomainName, const char *dnsServer
     char *QueryName = (char *)malloc(QueryNameLen);
     Domain2QueryName(DomainName, QueryName);
 
-    DNSHeader *pPACKHeader = (DNSHeader *)malloc(sizeof(DNSHeader *) + QueryNameLen + 4);
+    DNSHeader *pPACKHeader = (DNSHeader *)malloc(sizeof(DNSHeader));
     if(pPACKHeader == NULL) {
         fprintf(stderr, "Create pPACKHeader failed!\n");
         goto Exit;
     }
-
     
-    memset(pPACKHeader, 0, sizeof(DNSHeader *) + QueryNameLen + 4);
-
+    memset(pPACKHeader, 0, sizeof(DNSHeader));
     pPACKHeader->Trans_ID = htons(0x0001);
     pPACKHeader->RD = 0b1;
     pPACKHeader->Qestions = htons(0x0001);
 
-    BYTE *pTEXT = (BYTE *)pPACKHeader + sizeof(DNSHeader);
-    memcpy(pTEXT, QueryName, QueryNameLen);
 
-    unsigned short *queryType = (unsigned short *)(pPACKHeader + QueryNameLen);
-    *queryType = htons(0x0001);     //TYPE A, query return ipv4 address
+    unsigned short queryType, queryClass;
+    queryType = htons(0x1);     //TYPE A, query return ipv4 address
+    queryClass = htons(0x1);     //CLASS IN, for Internet.
 
-    ++queryType;
-    *queryType = htons(0x0001);     //CLASS IN, for Internet.
+    
 
+    char *buff = malloc(sizeof(DNSHeader) + QueryNameLen + 4);
+    memcpy(buff, pPACKHeader, sizeof(DNSHeader));
+    memcpy(buff + sizeof(DNSHeader), QueryName, QueryNameLen);
+    memcpy(buff + sizeof(DNSHeader) + QueryNameLen, (void *)&queryType, 2);
+    memcpy(buff + sizeof(DNSHeader) + QueryNameLen + 2, (void *)&queryClass, 2);
 
+    //fprintf(stderr, "QueryNameLen = %d\nbuffsize = %d\nstrlen(buff) = %d, buff = %s\n", QueryNameLen, sizeof(DNSHeader) + QueryNameLen + 4, strlen(buff), buff);
+    //fprintf(stderr, "pPACKHeader = %s\nQueryName = %s\nqueryType = %x\nqueryClass = %x\n", pPACKHeader, QueryName, queryType, queryClass);
     //Send Pack:
     SOCKADDR_IN dnsServAddr;
     dnsServAddr.sin_family = AF_INET;
@@ -91,7 +98,8 @@ BOOLEAN sendDNS(SOCKET sendSocket, const char *DomainName, const char *dnsServer
 
     fprintf(stderr, "Ready to send!\n");
 
-int ret = sendto(sendSocket, (char *)pPACKHeader, sizeof(DNSHeader *) + QueryNameLen + 4, 0, (SOCKADDR *)&dnsServAddr, sizeof(dnsServAddr));
+    //fprintf(stderr, "sizeof(dnsServAddr) = %d\n", sizeof(dnsServAddr));
+    int ret = sendto(sendSocket, buff, sizeof(DNSHeader) + QueryNameLen + 4, 0, (SOCKADDR *)&dnsServAddr, sizeof(dnsServAddr));
     if(ret == SOCKET_ERROR) {
         fprintf(stderr, "GetLastError: %d\n", GetLastError());
         fprintf(stderr, "sendto() failed!\nreturen value is %d\n", ret);
@@ -109,6 +117,11 @@ Exit:
     if(pPACKHeader) {
         free(pPACKHeader);
     }
+    if(buff) {
+        free(buff);
+    }
+    closesocket(sendSocket);
+    WSACleanup();
     
     return sendStatus;
 }
@@ -119,15 +132,10 @@ BOOLEAN verifyDomainName(const char *DomainName)        //TODO: add more details
     int dnLen = strlen(DomainName);
 
     if(DomainName == NULL || strlen(DomainName) == 0 || strlen(DomainName) > 255) {
-        fprintf(stderr, "1\n");
         isValid = FALSE;
     }
     if(DomainName[0] == '.' || ((DomainName[dnLen-1] == '.') && (DomainName[dnLen-2] == '.'))) {
-        fprintf(stderr, "2\n");
         isValid = FALSE;
-    }
-    if(isValid == TRUE) {
-        fprintf(stderr, "DomainName is valid!\n");
     }
 
     return isValid;
