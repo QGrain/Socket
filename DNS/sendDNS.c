@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <windows.h>
 #include <winsock2.h>
+#include <Ws2tcpip.h>
 #include "dnsHeader.h"
 
 #pragma comment(lib, "ws2_32.lib")
