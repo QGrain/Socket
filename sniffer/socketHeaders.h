@@ -8,13 +8,15 @@
 #define ETH_LEN 6
 #endif
 
+#define MAX_TRANS_UNIT 1500
+
 #ifndef SIO_RCVALL
 #define SIO_RCVALL _WSAIOW(IOC_VENDOR,1)
 #endif
 
 typedef struct _ethhdr {
-    unsigned char dest[ETH_LEN];
-    unsigned char source[ETH_LEN];
+    u_char dest[ETH_LEN];
+    u_char source[ETH_LEN];
     uint16_t proto;
 }Ethhdr;
 

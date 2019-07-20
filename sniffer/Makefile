@@ -1,18 +1,22 @@
 CC = gcc
-target = sniffer
-source = sniffer.c
-obj = sniffer.o
-header = socketHeader.h
-lib = ws2_32
-dll = 
+TARGET = sniffer
+SOURCE = sniffer.c
+OBJS = sniffer.o
+HEADER = socketHeader.h
+LIBS = -lws2_32
+DLL = 
 
-$(target):$(obj)
-	$(CC) $(obj) -l $(lib) -o $(target)
+$(TARGET):$(OBJS)
+	$(CC) $(OBJS) $(LIBS) -o $(TARGET)
 
-%.o:%.c $(header)
+%.o:%.c $(HEADER)
 	$(CC) -c $< -o $@
 
-.PHONY: clean
+
+.PHONY: clean uninstall
 clean:
-	rm $(obj)
+	rm $(OBJS)
+
+uninstall:
+	rm $(TARGET)
 	
