@@ -1,9 +1,10 @@
 # Socket
-Cross-Platform Socket Coding
+Cross-Platform Socket Coding :mag:
 
-## Wwindows
+## Windows
 - basic echo
 - raw socket
+- sniffer
 
 ## Linux
 - basic echo
